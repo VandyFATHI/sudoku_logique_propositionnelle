@@ -23,67 +23,52 @@ public class Main {
     public static void main(String[] args)
     {
         GameTable t = new GameTable("#26###81#3##7#8##64###5###7#5#1#7#9###39#51###4#3#2#5#1###3###25##2#4##9#38###46#");
-        System.out.println(t.caseIsValid(3,3, '4'));
         System.out.println(t);
 
         Formulas f = new Formulas();
-        f.CheckTable(t.getValues());
-        //f.AllPossibleValues(t.getValues());
         solver = SolverFactory.newDefault();
         solver.newVar(MAXVAR);
         solver.setExpectedNumberOfClauses(NBCLAUSES);
 
-        //t.VarsPropCreation();
 
-        /*for (int i = 0; i < 9; i++) {
-            for (int j = 0; j < 9; j++) {
-                System.out.println(f.getFormulas().get(9*i + j));
-            }
-        }
-        for (int i = 0; i < 9; i++) {
-            for (int j = 0; j < 9; j++) {
-                for (int k = 0; k < 9; k++) {
-                    System.out.println(" var = " + f.getPropVars()[i][j][k]);
-                }
-            }
-        }*/
-
-
-        for(Object e: f.getFormulas()){
-            System.out.println(" Formules : " + e);
-        }
+        System.out.println("---------------ALREADY ASSIGNED---------");
+        System.out.println(f.AlreadyAssigned(t.getValues()));
+        System.out.println("---------------PROPRIETE 1 AT LEAST ONE ---------");
+        System.out.println(f.RuleAtLeastOne());
+        System.out.println("---------------PROPRIETE 1 AT MOST ONE ---------");
+        System.out.println(f.RuleAtMostOne());
+        System.out.println("---------------PROPRIETE 2 BIS---------");
+        System.out.println(f.RuleTwo());
+        System.out.println("---------------PROPRIETE 3 BIS---------");
+        System.out.println(f.RuleThree());
+        System.out.println("---------------PROPRIETE 4 BIS---------");
+        System.out.println(f.RuleFour());
 
 
-
-        /*
-        t.AssignedSlots(assignedSlots);
-        for(String e : assignedSlots){
-            System.out.println("Already assigned = " + e);
-        }
-
-         */
-
-        And BigFormula = new And(f.getFormulas().get(0), f.getFormulas().get(1));
-        for (int i = 2; i < f.getFormulas().toArray().length; i++) {
-            BigFormula = new And(BigFormula, f.getFormulas().get(i));
-        }
-        //And BigFormula = new And(f.getAllPossibleValues(), f.getAllImpliesProcessed(),f.getAlreadyAssigned());
+       And BigFormula = new And(
+                f.RuleAtLeastOne(),
+                f.RuleAtMostOne(),
+                f.RuleTwo(),
+                f.RuleThree(),
+                f.RuleFour(),
+               f.AlreadyAssigned(t.getValues()));
 
 
-        System.out.println(" LE GIGA AND : " + BigFormula);
+        //System.out.println(" BIG FORMULA : " + BigFormula);
 
         BooleanFormula cnf = BooleanFormula.toCnf(BigFormula);
 
-        System.out.println("CNF : " + cnf);
+        //System.out.println(" CNF : " + cnf);
 
         int[][] clauses = cnf.getClauses();
 
+        /*
         int cpt=1;
         for (int[] c: clauses) {
             System.out.println(" Clauses " + cpt + " = " + Arrays.toString(c));
             cpt++;
         }
-
+        */
 
         for (int i=0; i<clauses.length; i++){
             try {
@@ -94,14 +79,15 @@ public class Main {
         }
 
         IProblem problem = solver;
-        ArrayList<Integer> posNum = new ArrayList<>();
+        ArrayList<Integer> posNum = new ArrayList<>(); // Contient que les valeurs positives du model du solver => les solutions
         try {
             if(problem.isSatisfiable()){
                 int[] model = problem.model();
                 getPositiveNumbers(model, posNum);
-                System.out.println(" length : " + posNum.size() + " " + posNum);
             }else{
-                System.err.println(" Unsatisfiable");
+                System.err.println("----------------------------------");
+                System.err.println(" UNSATISFIABLE");
+                System.err.println("----------------------------------");
             }
         } catch (TimeoutException e) {
             e.printStackTrace();
@@ -109,34 +95,27 @@ public class Main {
 
 
         Map<String,Integer> associations = cnf.getVariablesMap();
-        String key=null;
-        /*for (int i = 0; i <= 9; i++) {
-            for (int j = 0; j < 9; j++) {
-                for (int k = 0; k < 9; k++) {
-                    key = Integer.toString(i+1) + Integer.toString(j+1) + Integer.toString(k+1);
-                    System.out.println("Variable " + key + " is associated to number " + associations.get(key) + " et la valeur " + associations.keySet().toArray()[9*i+9*j+9*k]
-                    + " et la valeur " + (9*i+9*j+k+1));
+        Set<String> keys =  associations.keySet();
+        Collection<Integer> clause_values = associations.values();
+        ArrayList<String> result_values = new ArrayList<>();
+        int index = 0;
+        for (Integer val: posNum) {
+            index = 0;
+            for (Integer key: clause_values) {
+                if (key.equals(val)){
+                    result_values.add((String) keys.toArray()[index]);
                 }
+                index++;
             }
-        }*/
-        for(String keys: associations.keySet()){
-            System.out.println(" key = " + keys + " value = " + associations.get(keys));
         }
-        System.err.println(" POSNUM size = " + posNum.size());
-        for( int n: posNum){
-            System.out.println(associations.keySet().toArray()[n]);
-            t.set((((String)associations.keySet().toArray()[n]).charAt(0))-'0'-1,
-                    ((String)associations.keySet().toArray()[n]).charAt(1)-'0'-1,
-                    ((String)associations.keySet().toArray()[n]).charAt(2));
-        }
-        /*
-        for (int i = 0; i < posNum.size(); i++) {
-            t.set(Character.getNumericValue(Integer.toString(posNum.get(i)).charAt(0)),
-                    Character.getNumericValue(Integer.toString(posNum.get(i)).charAt(1)),
-                     Character.forDigit(associations.get(String.valueOf(posNum.get(i))), 10 ));
-        }*/
 
+        index=0;
+        for (String r: result_values) {
+            //solved_table[Character.getNumericValue(r.charAt(0))-1][Character.getNumericValue(r.charAt(1))-1] = r.charAt(2);
+            t.set(Character.getNumericValue(r.charAt(0))-1, Character.getNumericValue(r.charAt(1))-1, r.charAt(2));
+        }
         System.out.println(t);
+
 
 
 
